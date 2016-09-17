@@ -1,67 +1,93 @@
-#require 'exceldiff.rb'
+# coding: cp932
+
+require './textdiff_converter.rb'
+require 'win32ole'
+require 'kconv'
 require 'rake'
 
-HTML_STRING = \
-"<html>" \
-"<body>" \
-"HTML_BODY" \
-"</body>" \
-"</html>"
+module Excel
+end
 
-NORMAL_TAG = \
-"NORMAL_DATA<br>"
+$excel = WIN32OLE.new('Excel.Application')
+WIN32OLE.const_load($excel, Excel)
 
-BEFORE_TAG = \
-"<font style=\"background-color:#ff5555\">BEFORE_DATA</font><br>"
+# åxçêñ≥å¯âª
+$excel.displayalerts = false
 
-AFTER_TAG = \
-"<font style=\"background-color:#00aaff\">AFTER_DATA</font><br>"
+def getAbsolutePath(filename)
+  fso = WIN32OLE.new('Scripting.FileSystemObject')
+  return fso.GetAbsolutePathName(filename)
+end
 
-def convert_diff_to_html(base_file, new_file, output_file)
-  diff_file = "tmp.diff"
+def excel2text(filename, style)
+  filename = getAbsolutePath(filename)
+  p filename
 
+  book = $excel.Workbooks.Open(filename)
   begin
-    sh "diff -u #{base_file} #{new_file} > #{diff_file}" do |ok, status|
-    end
-
-    result_data = ""
-
-    File.open(diff_file) do |file|
-      file.each_line do |line|
-        if line.start_with?("---") || 
-           line.start_with?("+++") || 
-           line.start_with?("@@")
-          # skip diff command infomation
-        else
-          if line =~ /-(.*)/
-            result_data += BEFORE_TAG.gsub("BEFORE_DATA", $1)
-            p result_data
-          elsif line =~ /\+(.*)/
-            result_data += AFTER_TAG.gsub("AFTER_DATA", $1)
-            p result_data
-          else
-            result_data += NORMAL_TAG.gsub("NORMAL_DATA", line)
-          end
-        end
-      end # end of file.each_line
-    end # end of File.open
-
-    File.open(output_file, "w") do |file|
-      data = HTML_STRING.gsub("HTML_BODY", result_data)
-      file.write(data)
+    output_dir = File.dirname(filename)
+    #book.SaveAs("#{output_dir}\\test2.html", :FileFormat => Excel::XlHtml)
+    #book.SaveAs("#{output_dir}\\test3.txt", :FileFormat => Excel::XlUnicodeText)
+    book.Worksheets.each do |sheet|
+      p "Saving sheet:[#{sheet.Name}]"
+      p "Output file:[#{output_dir}\\#{sheet.Name}.txt]"
+      sheet.SaveAs("#{output_dir}\\#{sheet.Name}.txt", :FileFormat => style)
     end
   ensure
-    rm_f diff_file
+    book.Close
+    $excel.Quit
   end
 end
 
+task :export_excel2text do
+  base_dir = ENV['BASE_DIR']
+  new_dir  = ENV['NEW_DIR']
+  
+  Dir.glob("#{base_dir}/*") do |file|
+    excel2text(file, Excel::XlUnicodeText)
+  end
+  Dir.glob("#{base_dir}/*.txt") do |file|
+    s = File.open(file, :encoding => Encoding::UTF_8).read()
+    File.open(file, "w").write(s.tosjis)
+  end
+  
+  Dir.glob("#{new_dir}/*") do |file|
+    excel2text(file, Excel::XlUnicodeText)
+  end
+  Dir.glob("#{new_dir}/*.txt") do |file|
+    s = File.open(file, :encoding => Encoding::UTF_8).read()
+    File.open(file, "w").write(s.tosjis)
+  end
+
+end  
+
+task :export_excel2text_with_style do
+  base_dir = ENV['BASE_DIR']
+  new_dir  = ENV['NEW_DIR']
+  
+  Dir.glob("#{base_dir}/*") do |file|
+    excel2text(file, Excel::XlTextPrinter)
+  end
+
+  Dir.glob("#{new_dir}/*") do |file|
+    excel2text(file, Excel::XlTextPrinter)
+  end
+end  
+
 #task :convert_diff_to_html do
 task :convert do
-  base_file = ENV['BASE']
-  new_file  = ENV['NEW']
+  base_dir = ENV['BASE_DIR']
+  new_dir  = ENV['NEW_DIR']
+  output_dir  = ENV['OUTPUT_DIR']
   diff_file = "tmp.diff"
-  output_file = "#{File.basename(new_file)}.html"
 
-  convert_diff_to_html(base_file, new_file, output_file)
+  Dir.glob("#{new_dir}/*") do |file|
+    base_file = file.gsub(new_dir, base_dir)
+    output_file = "#{output_dir}/#{File.basename(file, '.*')}.html"
+    if File.exists?(base_file) 
+      convert_diff_to_html(base_file, file, output_file)
+    end
+  end
+ 
 end
 

@@ -7,21 +7,22 @@ def getAbsolutePath filename
   fso = WIN32OLE.new('Scripting.FileSystemObject')
   return fso.GetAbsolutePathName(filename)
 end
-filename = getAbsolutePath("sample1.excels")
+filename = getAbsolutePath("test.xlsx")
 
 excel = WIN32OLE.new('Excel.Application')
-WIN32OLE.const_load(excel)
+WIN32OLE.const_load(excel, Excel)
+
+excel.displayalerts = false
 
 book = excel.Workbooks.Open(filename)
 begin
+  current_dir = Dir.pwd.gsub("/", "\\")
+  book.Worksheets.Item('Sheet2')
+  #book.SaveAs('C:\Users\user\Desktop\exceldiff-master\test2.html', :FileFormat => Excel::XlHtml)
+  #book.SaveAs('C:\Users\user\Desktop\exceldiff-master\test3.txt', :FileFormat => Excel::XlUnicodeText)
   book.Worksheets.each do |sheet|
-    sheet.UsedRange.Rows.each do |row|
-      record = []
-      row.Columns.each do |cell|
-        record << cell.Value
-      end
-      puts record.join(",")
-    end
+    p "Saving sheet:[#{sheet.Name}]"
+    sheet.SaveAs("#{current_dir}\\#{sheet.Name}.txt", :FileFormat => Excel::XlUnicodeText)
   end
 ensure
   book.Close
