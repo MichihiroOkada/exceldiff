@@ -1,4 +1,4 @@
-# coding: cp932
+# coding: sjis
 
 require './textdiff_converter.rb'
 require 'win32ole'
@@ -39,55 +39,64 @@ def excel2text(filename, style)
   end
 end
 
-task :export_excel2text do
+task :excel2text do
   base_dir = ENV['BASE_DIR']
   new_dir  = ENV['NEW_DIR']
   
-  Dir.glob("#{base_dir}/*") do |file|
+  Dir.glob("#{base_dir}/**/*.{xls,xlsx,xlsm}") do |file|
     excel2text(file, Excel::XlUnicodeText)
   end
-  Dir.glob("#{base_dir}/*.txt") do |file|
-    s = File.open(file, :encoding => Encoding::UTF_8).read()
-    File.open(file, "w").write(s.tosjis)
+  Dir.glob("#{base_dir}/**/*.txt") do |file|
+    #s = File.open(file, :encoding => Encoding::UTF_8).read()
+    #File.open(file, "w").write(s.tosjis)
+    sh "nkf -s --overwrite #{file}"
   end
   
-  Dir.glob("#{new_dir}/*") do |file|
+  Dir.glob("#{new_dir}/**/*.{xls,xlsx,xlsm}") do |file|
     excel2text(file, Excel::XlUnicodeText)
   end
-  Dir.glob("#{new_dir}/*.txt") do |file|
-    s = File.open(file, :encoding => Encoding::UTF_8).read()
-    File.open(file, "w").write(s.tosjis)
+  Dir.glob("#{new_dir}/**/*.txt") do |file|
+    #s = File.open(file, :encoding => Encoding::UTF_8).read()
+    #File.open(file, "w").write(s.tosjis)
+    sh "nkf -s --overwrite #{file}"
   end
-
 end  
 
-task :export_excel2text_with_style do
+task :excel2text_with_style do
   base_dir = ENV['BASE_DIR']
   new_dir  = ENV['NEW_DIR']
   
-  Dir.glob("#{base_dir}/*") do |file|
+  Dir.glob("#{base_dir}/**/*.{xls,xlsx,xlsm}") do |file|
     excel2text(file, Excel::XlTextPrinter)
   end
 
-  Dir.glob("#{new_dir}/*") do |file|
+  Dir.glob("#{new_dir}/**/*.{xls,xlsx,xlsm}") do |file|
     excel2text(file, Excel::XlTextPrinter)
   end
 end  
 
 #task :convert_diff_to_html do
-task :convert do
+task :textdiff2html do
   base_dir = ENV['BASE_DIR']
   new_dir  = ENV['NEW_DIR']
   output_dir  = ENV['OUTPUT_DIR']
   diff_file = "tmp.diff"
 
-  Dir.glob("#{new_dir}/*") do |file|
+  summary = {}
+
+  Dir.glob("#{new_dir}/**/*.txt") do |file|
     base_file = file.gsub(new_dir, base_dir)
     output_file = "#{output_dir}/#{File.basename(file, '.*')}.html"
+
+    p "Output file:[#{output_file}]"
     if File.exists?(base_file) 
-      convert_diff_to_html(base_file, file, output_file)
+      compare_result = convert_diff_to_html(base_file, file, output_file)
+      summary[output_file] = compare_result
+    else
+      p "!!new sheet detected!!"
     end
   end
- 
+
+  create_summary_html(summary, "index.html")
 end
 
